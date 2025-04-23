@@ -16,8 +16,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
-import net.minecraft.client.option.KeyBinding;
-import org.lwjgl.glfw.GLFW;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,21 +29,11 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 	private int pendingScanTicks = 0;
 	private boolean pendingScanFromKey = false;
 
-	private KeyBinding scanKeybind;
-	private KeyBinding clearKeybind;
-
 	// To track original blocks for restoration
 	private final Map<BlockPos, BlockState> replacedBlocks = new HashMap<>();
 
 	@Override
 	public void onInitializeClient() {
-		// Keybinding for scan (O key)
-		scanKeybind = KeyBindingHelper.registerKeyBinding(
-				new KeyBinding("key.puzzlesolver.scan", GLFW.GLFW_KEY_O, "Puzzle Solver"));
-		// Keybinding for clear (K key)
-		clearKeybind = KeyBindingHelper.registerKeyBinding(
-				new KeyBinding("key.puzzlesolver.clear", GLFW.GLFW_KEY_K, "Puzzle Solver"));
-
 		// Register client-only commands properly for Fabric v2
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
 			dispatcher.register(
@@ -86,18 +74,6 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client == null || client.player == null || client.world == null) return;
 		
-			// Keybindings for scan/clear (unchanged)
-			while (scanKeybind.wasPressed()) {
-				client.player.sendMessage(Text.literal("[PuzzleSolver] Keybind: scan scheduled (delay)..."), false);
-				clearPreviousBlocks(client);
-				pendingScanTicks = 20; // 1 second delay
-				pendingScanFromKey = true;
-			}
-			while (clearKeybind.wasPressed()) {
-				client.player.sendMessage(Text.literal("[PuzzleSolver] Keybind: clearing blocks."), false);
-				clearPreviousBlocks(client);
-			}
-		
 			// Check for pending delayed scan
 			if (pendingScanTicks > 0) {
 				pendingScanTicks--;
@@ -113,7 +89,6 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 				BlockPos hitPos = blockHit.getBlockPos();
 				if (client.options.useKey.isPressed()) {
 					if (hitPos.equals(triggerButtonPos)) {
-						client.player.sendMessage(Text.literal("[PuzzleSolver] Trigger button pressed! Scan scheduled (delay)..."), false);
 						clearPreviousBlocks(client);
 						pendingScanTicks = 10; // 0.5 second delay
 						pendingScanFromKey = false;
@@ -126,15 +101,12 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 				if (entity.getType().getTranslationKey().contains("arrow") || entity.getType().getTranslationKey().contains("projectile")) {
 					BlockPos arrowPos = entity.getBlockPos();
 					if (arrowPos.equals(clearButtonPos)) {
-						client.player.sendMessage(Text.literal("[PuzzleSolver] Arrow/projectile hit clear button! Blocks cleared."), false);
 						clearPreviousBlocks(client);
 					}
 				}
 			});
 		});
 	}
-
-	// --- Command handlers ---
 
 	private int setPos(CommandContext<FabricClientCommandSource> ctx, String type) {
 		int x = IntegerArgumentType.getInteger(ctx, "x");
@@ -172,11 +144,8 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 		return 1;
 	}
 
-	// --- Puzzle logic using dynamic positions ---
-
 	private void scanAndReplaceWithObsidian(MinecraftClient client) {
 		ClientWorld world = client.world;
-		int found = 0;
 
 		// Get base positions from fields (settable by command!)
 		int quartzStartX = quartzWallStart.getX();
@@ -191,21 +160,16 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 			for (int dy = 0; dy < 5; dy++) {
 				BlockPos quartzPos = new BlockPos(quartzStartX + dx, quartzStartY + dy, quartzZ);
 				if (world.getBlockState(quartzPos).isOf(Blocks.REDSTONE_BLOCK)) {
-					found++;
 					BlockPos buttonPos = new BlockPos(buttonStartX + dx, buttonStartY + dy, buttonZ);
 
 					BlockState original = world.getBlockState(buttonPos);
 					replacedBlocks.put(buttonPos, original);
 					world.setBlockState(buttonPos, Blocks.OBSIDIAN.getDefaultState());
 
-					client.player.sendMessage(Text.literal("[PuzzleSolver] Obsidian at " + buttonPos), false);
 				}
 			}
 		}
 
-		if (found == 0) {
-			client.player.sendMessage(Text.literal("[PuzzleSolver] No redstone blocks found on quartz wall."), false);
-		}
 	}
 
 	private void clearPreviousBlocks(MinecraftClient client) {
@@ -215,6 +179,5 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 			world.setBlockState(entry.getKey(), entry.getValue());
 		}
 		replacedBlocks.clear();
-		client.player.sendMessage(Text.literal("[PuzzleSolver] blocks cleared."), false);
 	}
 }
