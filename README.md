@@ -23,3 +23,6 @@ See [Commands](#Commands) for more information.
 /puzzlesolver set clear x y z
 ```
 
+# Building
+* Run `./gradlew build`
+* Copy `build/libs/shotbow-puzzle-solver-1.0.0.jar` to your mods folder
