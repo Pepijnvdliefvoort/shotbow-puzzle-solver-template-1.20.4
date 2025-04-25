@@ -15,20 +15,10 @@
 	"icon": "assets/shotbow-puzzle-solver/icon.png",
 	"environment": "*",
 	"entrypoints": {
-		"main": [
-			"shotbow.puzzle.solver.com.example.Shotbowpuzzlesolver"
-		],
 		"client": [
-			"shotbow.puzzle.solver.com.example.ShotbowpuzzlesolverClient"
+			"shotbow.puzzle.solver.ShotbowpuzzlesolverClient"
 		]
 	},
-	"mixins": [
-		"shotbow-puzzle-solver.mixins.json",
-		{
-			"config": "shotbow-puzzle-solver.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.16.13",
 		"minecraft": "~1.20.4",
