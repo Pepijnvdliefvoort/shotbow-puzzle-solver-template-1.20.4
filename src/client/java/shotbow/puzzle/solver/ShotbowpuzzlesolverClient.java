@@ -1,23 +1,29 @@
 package shotbow.puzzle.solver;
 
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.scoreboard.ReadableScoreboardScore;
+import net.minecraft.scoreboard.ScoreHolder;
+import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.scoreboard.ScoreboardDisplaySlot;
+import net.minecraft.scoreboard.ScoreboardEntry;
+import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.text.Text;
 import shotbow.puzzle.solver.StRoseluckCrypt.BossRoomPuzzleSolver;
 import shotbow.puzzle.solver.StRoseluckCrypt.BridgeLampPuzzleSolver;
 
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-
-import com.mojang.brigadier.arguments.StringArgumentType;
 
 public class ShotbowpuzzlesolverClient implements ClientModInitializer {
 
-    private final Map<String, IPuzzleSolver> solvers = new HashMap<>();
-    private IPuzzleSolver activeSolver;
+    public static final Map<String, IPuzzleSolver> solvers = new HashMap<>();
+    public static final Map<String, PuzzleGroup> groups = new HashMap<>();
+    public static PuzzleGroup activeGroup = null;
 
     @Override
     public void onInitializeClient() {
@@ -28,54 +34,21 @@ public class ShotbowpuzzlesolverClient implements ClientModInitializer {
         solvers.put(crypt.getName().toLowerCase(), crypt);
         solvers.put(bridge.getName().toLowerCase(), bridge);
 
-        activeSolver = crypt; // default
+        // Group: St Roseluck Crypt
+        PuzzleGroup stRoseluckGroup = new PuzzleGroup(
+                "stroseluck",
+                List.of(crypt, bridge));
+        groups.put(stRoseluckGroup.getName().toLowerCase(), stRoseluckGroup);
 
-        // Command to switch active solver
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(
-                    ClientCommandManager.literal("puzzlesolver")
-                            .then(ClientCommandManager.literal("use")
-                                    .then(ClientCommandManager.argument("solver", StringArgumentType.word())
-                                            .suggests((ctx, builder) -> {
-                                                for (String name : solvers.keySet())
-                                                    builder.suggest(name);
-                                                return builder.buildFuture();
-                                            })
-                                            .executes(ctx -> {
-                                                String solverName = StringArgumentType.getString(ctx, "solver")
-                                                        .toLowerCase();
-                                                IPuzzleSolver selected = solvers.get(solverName);
-                                                if (selected != null) {
-                                                    if (activeSolver != null)
-                                                        activeSolver.deactivate(MinecraftClient.getInstance());
-                                                    activeSolver = selected;
-                                                    activeSolver.activate(MinecraftClient.getInstance());
-                                                    ctx.getSource().sendFeedback(
-                                                            Text.literal("[PuzzleSolver] Using solver: " + solverName));
-                                                } else {
-                                                    ctx.getSource().sendFeedback(Text
-                                                            .literal("[PuzzleSolver] Solver not found: " + solverName));
-                                                }
-                                                return 1;
-                                            })))
-                            .then(ClientCommandManager.literal("list")
-                                    .executes(ctx -> {
-                                        ctx.getSource().sendFeedback(Text.literal("[PuzzleSolver] Available solvers:"));
-                                        for (String name : solvers.keySet()) {
-                                            boolean isActive = activeSolver != null
-                                                    && activeSolver.getName().equalsIgnoreCase(name);
-                                            String line = (isActive ? " * " : "   ") + name;
-                                            ctx.getSource().sendFeedback(Text.literal(line));
-                                        }
-                                        return 1;
-                                    })));
-        });
+        // Register commands in a separate file
+        PuzzleSolverCommands.register();
 
-        // Forward tick event to active solver
+        // Forward tick event to active group
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (activeSolver != null) {
-                activeSolver.onTick(client);
+            if (activeGroup != null) {
+            activeGroup.onTick(client);
             }
         });
+
     }
 }

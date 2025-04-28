@@ -14,15 +14,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BridgeLampPuzzleSolver implements IPuzzleSolver {
+    private static final int EFFECT_RADIUS = 32; // only affect blocks within 32 blocks of player
+
     // Lamp line
-    private final int lampX = 56;
+    private final int lampX = 59;
     private final int lampY = 48;
-    private final int lampZMin = -62;
-    private final int lampZMax = -54;
 
     // Bridge
     private final int bridgeStartX = 39;
-    private final int bridgeEndX = 110; // 72 blocks: 39..110 inclusive
+    private final int bridgeEndX = 110;
     private final int bridgeY = 40;
     private final int edgeNorthZ = -62;
     private final int edgeSouthZ = -54;
@@ -30,8 +30,8 @@ public class BridgeLampPuzzleSolver implements IPuzzleSolver {
     private final int slabZMax = -55;
 
     // Buttons
-    private final BlockPos triggerButtonPos = new BlockPos(31, 41, -55);
-    private final BlockPos clearButtonPos = new BlockPos(137, 22, -55);
+    private final BlockPos triggerButtonPos = new BlockPos(30, 41, -55);
+    private final BlockPos clearButtonPos = new BlockPos(137, 22, -58);
 
     private boolean monitoringActive = false;
     private final Map<BlockPos, BlockState> originalBlocks = new HashMap<>();
@@ -43,21 +43,26 @@ public class BridgeLampPuzzleSolver implements IPuzzleSolver {
 
     @Override
     public void activate(MinecraftClient client) {
+        sendDebugMessage(client, "activated.");
         monitoringActive = false;
         restoreAll(client);
     }
 
     @Override
     public void deactivate(MinecraftClient client) {
+        sendDebugMessage(client, "deactivated.");
         monitoringActive = false;
         restoreAll(client);
     }
 
     @Override
     public void onTick(MinecraftClient client) {
-        if (client == null || client.player == null || client.world == null) return;
+        if (client == null || client.player == null || client.world == null) {
+            return;
+        }
 
-        // Check for trigger/clear press
+        BlockPos playerPos = client.player.getBlockPos();
+
         HitResult hit = client.crosshairTarget;
         if (hit instanceof BlockHitResult blockHit) {
             BlockPos hitPos = blockHit.getBlockPos();
@@ -73,13 +78,13 @@ public class BridgeLampPuzzleSolver implements IPuzzleSolver {
             }
         }
 
-        if (!monitoringActive) return;
+        if (!monitoringActive) {
+            return;
+        }
 
         ClientWorld world = client.world;
 
-        // --- NORTH EDGE (Z = -62) and SOUTH EDGE (Z = -54) ---
-        for (int edgeZ : new int[] {edgeNorthZ, edgeSouthZ}) {
-            // Check corresponding lamp
+        for (int edgeZ : new int[] { edgeNorthZ, edgeSouthZ }) {
             BlockPos lampPos = new BlockPos(lampX, lampY, edgeZ);
             BlockState lampState = world.getBlockState(lampPos);
             boolean isLit = lampState.isOf(Blocks.REDSTONE_LAMP)
@@ -88,29 +93,29 @@ public class BridgeLampPuzzleSolver implements IPuzzleSolver {
 
             for (int x = bridgeStartX; x <= bridgeEndX; x++) {
                 BlockPos pos = new BlockPos(x, bridgeY, edgeZ);
-                BlockState current = world.getBlockState(pos);
+                if (!isNearPlayer(pos, playerPos, EFFECT_RADIUS))
+                    continue;
 
-                // Save for restoration
+                BlockState current = world.getBlockState(pos);
                 if (!originalBlocks.containsKey(pos)) {
                     originalBlocks.put(pos, current);
                 }
 
-                // Only replace if current is cobblestone, copper, or red nether bricks
-                if (current.isOf(Blocks.COBBLESTONE)
-                 || current.isOf(Blocks.OXIDIZED_CUT_COPPER)
-                 || current.isOf(Blocks.RED_NETHER_BRICKS)) {
-                    BlockState newState = isLit ? Blocks.OXIDIZED_CUT_COPPER.getDefaultState()
-                                                : Blocks.RED_NETHER_BRICKS.getDefaultState();
-                    if (!current.isOf(newState.getBlock())) {
-                        world.setBlockState(pos, newState);
+                if (isLit) {
+                    if (!current.isOf(Blocks.OXIDIZED_CUT_COPPER)) {
+                        world.setBlockState(pos, Blocks.OXIDIZED_CUT_COPPER.getDefaultState());
+                    }
+                } else {
+                    BlockState orig = originalBlocks.get(pos);
+                    if (orig != null && !current.equals(orig)) {
+                        world.setBlockState(pos, orig);
                     }
                 }
             }
         }
 
-        // --- MIDDLE (SLABS, Z = -61 to -55) ---
+        // Process slab rows
         for (int z = slabZMin; z <= slabZMax; z++) {
-            // Check corresponding lamp
             BlockPos lampPos = new BlockPos(lampX, lampY, z);
             BlockState lampState = world.getBlockState(lampPos);
             boolean isLit = lampState.isOf(Blocks.REDSTONE_LAMP)
@@ -119,21 +124,22 @@ public class BridgeLampPuzzleSolver implements IPuzzleSolver {
 
             for (int x = bridgeStartX; x <= bridgeEndX; x++) {
                 BlockPos pos = new BlockPos(x, bridgeY, z);
-                BlockState current = world.getBlockState(pos);
+                if (!isNearPlayer(pos, playerPos, EFFECT_RADIUS))
+                    continue;
 
+                BlockState current = world.getBlockState(pos);
                 if (!originalBlocks.containsKey(pos)) {
                     originalBlocks.put(pos, current);
                 }
 
-                // Only replace slabs of certain types
-                if (current.isOf(Blocks.NETHER_BRICK_SLAB)
-                 || current.isOf(Blocks.STONE_BRICK_SLAB)
-                 || current.isOf(Blocks.RED_NETHER_BRICK_SLAB)
-                 || current.isOf(Blocks.OXIDIZED_CUT_COPPER_SLAB)) {
-                    BlockState newState = isLit ? Blocks.OXIDIZED_CUT_COPPER_SLAB.getDefaultState()
-                                                : Blocks.RED_NETHER_BRICK_SLAB.getDefaultState();
-                    if (!current.isOf(newState.getBlock())) {
-                        world.setBlockState(pos, newState);
+                if (isLit) {
+                    if (!current.isOf(Blocks.OXIDIZED_CUT_COPPER_SLAB)) {
+                        world.setBlockState(pos, Blocks.OXIDIZED_CUT_COPPER_SLAB.getDefaultState());
+                    }
+                } else {
+                    BlockState orig = originalBlocks.get(pos);
+                    if (orig != null && !current.equals(orig)) {
+                        world.setBlockState(pos, orig);
                     }
                 }
             }
@@ -146,5 +152,9 @@ public class BridgeLampPuzzleSolver implements IPuzzleSolver {
             world.setBlockState(entry.getKey(), entry.getValue());
         }
         originalBlocks.clear();
+    }
+
+    private boolean isNearPlayer(BlockPos pos, BlockPos playerPos, int radius) {
+        return pos.getManhattanDistance(playerPos) <= radius;
     }
 }

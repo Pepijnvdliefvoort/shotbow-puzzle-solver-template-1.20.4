@@ -4,7 +4,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import shotbow.puzzle.solver.IPuzzleSolver;
 import net.minecraft.util.hit.BlockHitResult;
@@ -28,11 +27,13 @@ public class BossRoomPuzzleSolver implements IPuzzleSolver {
 
     @Override
     public void activate(MinecraftClient client) {
+        sendDebugMessage(client, "activated.");
         monitoringActive = false;
     }
 
     @Override
     public void deactivate(MinecraftClient client) {
+        sendDebugMessage(client, "deactivated.");
         clearPreviousBlocks(client);
         monitoringActive = false;
     }
