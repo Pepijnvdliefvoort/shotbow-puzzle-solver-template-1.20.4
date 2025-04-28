@@ -13,7 +13,7 @@ public interface IPuzzleSolver {
 
     default void sendDebugMessage(MinecraftClient client, String message) {
         if (client != null && client.player != null) {
-            client.player.sendMessage(net.minecraft.text.Text.literal("[" + getName() + "]" + message), false);
+            client.player.sendMessage(net.minecraft.text.Text.literal("[" + getName() + "] " + message), false);
         }
     }
 }
