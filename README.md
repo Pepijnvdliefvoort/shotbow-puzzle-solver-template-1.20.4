@@ -1,4 +1,4 @@
-![Build](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)
+![Build](https://github.com/Pepijnvdliefvoort/shotbow-puzzle-solver-template-1.20.4/actions/workflows/build.yml/badge.svg)
 
 # Introduction
  This mod is designed for the Shotbow Network server, specifically for the gamemode MineZ.
