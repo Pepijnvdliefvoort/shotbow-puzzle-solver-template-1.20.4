@@ -1,3 +1,5 @@
+![Build](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)
+
 # Introduction
  This mod is designed for the Shotbow Network server, specifically for the gamemode MineZ.
  
